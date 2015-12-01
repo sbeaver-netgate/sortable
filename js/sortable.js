@@ -189,36 +189,57 @@
     }
   };
 
-  sortable.setupTypes([
-    {
-      name: 'numeric',
-      defaultSortDirection: 'descending',
-      match: function(a) {
-        return a.match(numberRegExp);
-      },
-      comparator: function(a) {
-        return parseFloat(a.replace(/[^0-9.-]/g, ''), 10) || 0;
-      }
-    }, {
-      name: 'date',
-      defaultSortDirection: 'ascending',
-      reverse: true,
-      match: function(a) {
-        return !isNaN(Date.parse(a));
-      },
-      comparator: function(a) {
-        return Date.parse(a) || 0;
-      }
-    }, {
-      name: 'alpha',
-      defaultSortDirection: 'ascending',
-      match: function() {
-        return true;
-      },
-      compare: function(a, b) {
-        return a.localeCompare(b);
-      }
-    }
+	// ip type needs to go first to prevent 'numeric" from catching it
+	// 3 dots = IPv4
+	// 2 colons = IPv6
+	// Crude but sufficient here
+	sortable.setupTypes([
+		{
+		name: 'ip',
+		defaultSortDirection: 'ascending',
+		match: function(a) {
+			v4 = a.split(".").length;
+			v6 = a.split(":").length;
+			return ((v4 == 4) || (v6 > 2));
+		},
+		compare: function(a, b) {
+			a = padip(a);
+			b = padip(b);
+			return ((a < b) ? -1 : ((a > b) ? 1 : 0));
+		}
+	},	{
+		name: 'numeric',
+		defaultSortDirection: 'descending',
+
+		match: function(a) {
+			return a.match(numberRegExp);
+		},
+
+		comparator: function(a) {
+			return parseFloat(a.replace(/[^0-9.-]/g, ''), 10) || 0;
+		}
+	},	{
+		name: 'date',
+		defaultSortDirection: 'ascending',
+		reverse: true,
+		match: function(a) {
+			return !isNaN(Date.parse(a));
+		},
+
+		comparator: function(a) {
+			return Date.parse(a) || 0;
+		}
+	},	{
+		name: 'alpha',
+		defaultSortDirection: 'ascending',
+		match: function() {
+			return true;
+		},
+
+		compare: function(a, b) {
+			return a.localeCompare(b);
+		}
+	}
   ]);
 
   setTimeout(sortable.init, 0);
@@ -234,3 +255,80 @@
   }
 
 }).call(this);
+
+// pad function is based on work by Dominique Fournier
+// https://www.datatables.net/plug-ins/sorting/ip-address
+function padip ( a ) {
+	var i, item;
+	var m = a.split("."),
+		n = a.split(":"),
+		x = "",
+		xa = "";
+
+	if (m.length == 4) {
+		// IPV4
+		for(i = 0; i < m.length; i++) {
+			item = m[i];
+
+			if(item.length == 1) {
+				x += "00" + item;
+			}
+			else if(item.length == 2) {
+				x += "0" + item;
+			}
+			else {
+				x += item;
+			}
+		}
+	} else if (n.length > 0) {
+		// IPV6
+		var count = 0;
+		for(i = 0; i < n.length; i++) {
+			item = n[i];
+
+			if (i > 0) {
+				xa += ":";
+			}
+
+			if(item.length === 0) {
+				count += 0;
+			}
+			else if(item.length == 1) {
+				xa += "000" + item;
+				count += 4;
+			}
+			else if(item.length == 2) {
+				xa += "00" + item;
+				count += 4;
+			}
+			else if(item.length == 3) {
+				xa += "0" + item;
+				count += 4;
+			}
+			else {
+				xa += item;
+				count += 4;
+			}
+		}
+
+		// Padding the ::
+		n = xa.split(":");
+		var paddDone = 0;
+
+		for (i = 0; i < n.length; i++) {
+			item = n[i];
+
+			if (item.length === 0 && paddDone === 0) {
+				for (var padding = 0 ; padding < (32-count) ; padding++) {
+					x += "0";
+					paddDone = 1;
+				}
+			}
+			else {
+				x += item;
+			}
+		}
+	}
+
+	return x;
+}
